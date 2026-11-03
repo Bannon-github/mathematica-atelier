@@ -78,7 +78,7 @@ function addColourWheel(key,title){
 for(const [key,title] of [['upper','Upper sheet'],['lower','Lower sheet'],['surface','General surface'],['background','Background']])addColourWheel(key,title);
 
 function installBackgroundPopup(){
- const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('h3')?.textContent==='Background');
+ const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('label')?.textContent==='Background');
  const expressionInput=$('bg');
  if(!wheel||!expressionInput)return;
  const modal=document.createElement('div');modal.id='backgroundPopup';modal.className='background-popup';modal.setAttribute('role','dialog');modal.setAttribute('aria-label','Background settings');modal.setAttribute('aria-modal','false');modal.hidden=true;
