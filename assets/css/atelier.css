@@ -65,3 +65,16 @@ main>section{min-width:0;min-height:340px}
 .background-popup .wheel-panel canvas{height:172px}
 .background-popup label[for="bg"]{display:block;margin:10px 0 6px}
 .background-popup #bg{box-sizing:border-box;width:100%}
+
+/* Full-width canvas with floating contextual editors */
+main{display:block!important;height:calc(100vh - 132px)!important}
+main>section{height:100%;width:100%;min-height:0}
+main>aside:last-child{display:none}
+.workspace-float{position:fixed;z-index:900;top:145px;right:18px;width:min(350px,calc(100vw - 36px));max-height:calc(100vh - 165px);overflow:auto;background:#231b35;border:1px solid #b78ee8;border-radius:16px;box-shadow:0 18px 55px #000a}
+.workspace-float[hidden]{display:none!important}
+.workspace-float>aside{display:block!important;min-height:0!important;overflow:visible;background:transparent;padding:20px}
+.workspace-close{position:absolute;top:9px;right:10px;width:32px!important;height:32px;margin:0;padding:0;font:25px Arial,sans-serif;z-index:2}
+.background-popup{border:2px solid #ef7bf1;box-shadow:0 14px 50px #000a,0 0 16px #df7bef44}
+.surface-popup{border-color:#e97bff}
+#view{cursor:crosshair}
+@media(max-width:800px){main{height:calc(100dvh - 132px)!important}main>section{height:100%!important;min-height:0}}
