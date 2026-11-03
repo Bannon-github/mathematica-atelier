@@ -54,3 +54,14 @@ main>section{min-width:0;min-height:340px}
 .settings-panel[hidden]{display:none!important}
 .workspace-nav button:focus-visible{outline:2px solid #e4c2ff;outline-offset:2px}
 @media(max-width:800px){main{display:flex;flex-direction:column;height:auto}main>section{height:52vh;min-height:300px;order:0}main>aside:last-child{order:1;max-height:none;border-left:0}header .brand{font-size:30px}}
+
+/* Canvas-positioned background editor */
+.background-popup{position:fixed;z-index:1000;box-sizing:border-box;max-height:calc(100vh - 24px);overflow:auto;padding:14px;background:#211d30;border:1px solid #b899d0;border-radius:14px;box-shadow:0 18px 60px #0009;color:#f3e9e9;font:17px Georgia,serif}
+.background-popup[hidden]{display:none!important}
+.background-popup-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.background-popup-header button{width:32px;height:32px;padding:0;font-size:24px;line-height:1}
+.background-popup p{font-size:13px;opacity:.8;margin:8px 0}
+.background-popup .wheel-panel{margin:10px 0}
+.background-popup .wheel-panel canvas{height:172px}
+.background-popup label[for="bg"]{display:block;margin:10px 0 6px}
+.background-popup #bg{box-sizing:border-box;width:100%}
