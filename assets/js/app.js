@@ -98,47 +98,38 @@ function installSurfacePopup(){
  document.addEventListener('keydown',e=>{if(e.key==='Escape')panel.hidden=true});
 }
 function installBackgroundPopup(){
- const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('label')?.textContent==='Background');
- const expressionInput=$('bg');
- if(!wheel||!expressionInput)return;
- const modal=document.createElement('div');modal.id='backgroundPopup';modal.className='background-popup';modal.setAttribute('role','dialog');modal.setAttribute('aria-label','Background settings');modal.setAttribute('aria-modal','false');modal.hidden=true;
+ const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('label')?.textContent?.trim()==='Background');
+ const input=$('bg');
+ const panel=document.createElement('div');panel.id='backgroundPopup';panel.className='background-popup';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Background settings');
  const header=document.createElement('div');header.className='background-popup-header';
- const title=document.createElement('strong');title.textContent='Background settings';
- const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close background settings');close.onclick=()=>{modal.hidden=true};
- header.append(title,close);
- const description=document.createElement('p');description.textContent='Click an empty area of the canvas to move this card.';
- const label=document.createElement('label');label.htmlFor='bg';label.textContent='Background colour expression (hue 0–1)';
- const previousLabel=expressionInput.previousElementSibling;
- if(previousLabel?.tagName==='LABEL'&&previousLabel.textContent.includes('Background'))previousLabel.remove();
- modal.append(header,description,wheel,label,expressionInput);
- document.body.append(modal);
+ const title=document.createElement('strong');title.textContent='Background colour';
+ const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close background settings');close.onclick=()=>panel.hidden=true;
+ header.append(title,close);panel.append(header);
+ if(wheel)panel.append(wheel);
+ if(input){const label=input.previousElementSibling;if(label?.tagName==='LABEL')panel.append(label);panel.append(input)}
+ document.body.append(panel);
+ // OrbitControls captures pointer events. Listen in the capture phase at document level.
  const canvas=$('view'),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
  let down=null;
- canvas.addEventListener('pointerdown',event=>{if(event.button===0)down={x:event.clientX,y:event.clientY}});
- canvas.addEventListener('pointerup',event=>{
-  if(event.button!==0||!down)return;
-  const distance=Math.hypot(event.clientX-down.x,event.clientY-down.y);down=null;
-  if(distance>5)return;
+ document.addEventListener('pointerdown',e=>{
+  if(e.target===canvas&&e.button===0)down={x:e.clientX,y:e.clientY,id:e.pointerId};else down=null;
+ },true);
+ document.addEventListener('pointerup',e=>{
+  if(!down||e.pointerId!==down.id)return;
+  const start=down;down=null;
+  if(Math.hypot(e.clientX-start.x,e.clientY-start.y)>7)return;
   const rect=canvas.getBoundingClientRect();
-  pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return;
+  pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
   raycaster.setFromCamera(pointer,camera);
-  const surfaces=[mesh,upperMesh,lowerMesh].filter(object=>object&&object.visible);
-  const onSurface=raycaster.intersectObjects(surfaces,false).length>0;
-  if(onSurface){openSurfacePopup(event.clientX,event.clientY);modal.hidden=true;return;}
-  const surfacePopup=document.getElementById('surfacePopup');if(surfacePopup)surfacePopup.hidden=true;
-  modal.hidden=false;
-  const margin=12;
-  const width=Math.min(330,window.innerWidth-2*margin);
-  modal.style.width=width+'px';
-  const left=Math.max(margin,Math.min(event.clientX+12,window.innerWidth-width-margin));
-  const top=Math.max(margin,Math.min(event.clientY+12,window.innerHeight-Math.min(modal.offsetHeight,window.innerHeight-2*margin)-margin));
-  modal.style.left=left+'px';modal.style.top=top+'px';
- });
- document.addEventListener('keydown',event=>{if(event.key==='Escape')modal.hidden=true});
- document.addEventListener('pointerdown',event=>{if(!modal.hidden&&!modal.contains(event.target)&&event.target!==canvas)modal.hidden=true});
+  const surfaces=[mesh,upperMesh,lowerMesh].filter(o=>o&&o.visible);
+  const hit=raycaster.intersectObjects(surfaces,false).length>0;
+  const other=document.getElementById('surfacePopup');
+  if(hit){panel.hidden=true;openSurfacePopup(e.clientX,e.clientY)}
+  else{if(other)other.hidden=true;positionEditor(panel,e.clientX,e.clientY)}
+ },true);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')panel.hidden=true});
 }
-
-
 
 function numericControl(key,label,get,set,min,max,host,precision=4){
  const config={key,label,get,set,min,max,enabled:false,rate:0.1,lower:min,upper:max,mode:'bounce',direction:1};
