@@ -77,6 +77,26 @@ function addColourWheel(key,title){
 }
 for(const [key,title] of [['upper','Upper sheet'],['lower','Lower sheet'],['surface','General surface'],['background','Background']])addColourWheel(key,title);
 
+function positionEditor(panel,x,y){
+ panel.hidden=false;
+ const margin=12,width=Math.min(340,innerWidth-2*margin);
+ panel.style.width=width+'px';
+ panel.style.left=Math.max(margin,Math.min(x+14,innerWidth-width-margin))+'px';
+ panel.style.top=Math.max(margin,Math.min(y+14,innerHeight-Math.min(panel.offsetHeight,innerHeight-2*margin)-margin))+'px';
+}
+function openSurfacePopup(x,y){const panel=document.getElementById('surfacePopup');if(panel)positionEditor(panel,x,y)}
+function installSurfacePopup(){
+ const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('label')?.textContent==='General surface');
+ if(!wheel)return;
+ const panel=document.createElement('div');panel.id='surfacePopup';panel.className='background-popup surface-popup';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Surface colour settings');
+ const bar=document.createElement('div');bar.className='background-popup-header';
+ const title=document.createElement('strong');title.textContent='Surface colour';
+ const close=document.createElement('button');close.textContent='×';close.setAttribute('aria-label','Close surface settings');close.onclick=()=>panel.hidden=true;
+ bar.append(title,close);panel.append(bar,wheel);
+ const hue=$('hue');if(hue){const label=hue.previousElementSibling;if(label?.tagName==='LABEL')panel.append(label);panel.append(hue)}
+ document.body.append(panel);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')panel.hidden=true});
+}
 function installBackgroundPopup(){
  const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('label')?.textContent==='Background');
  const expressionInput=$('bg');
@@ -103,7 +123,9 @@ function installBackgroundPopup(){
   pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
   raycaster.setFromCamera(pointer,camera);
   const surfaces=[mesh,upperMesh,lowerMesh].filter(object=>object&&object.visible);
-  if(raycaster.intersectObjects(surfaces,false).length)return;
+  const onSurface=raycaster.intersectObjects(surfaces,false).length>0;
+  if(onSurface){openSurfacePopup(event.clientX,event.clientY);modal.hidden=true;return;}
+  const surfacePopup=document.getElementById('surfacePopup');if(surfacePopup)surfacePopup.hidden=true;
   modal.hidden=false;
   const margin=12;
   const width=Math.min(330,window.innerWidth-2*margin);
@@ -221,7 +243,7 @@ function parse(rebuild=true){
 }
 function select(s){$('expr').value=s;apply()}function apply(){if(!parse())return;history=[ $('expr').value,...history.filter(v=>v!==$('expr').value)].slice(0,30);localStorage.setItem('atelierHistory',JSON.stringify(history));drawHistory()}function drawHistory(){$('history').innerHTML='<option value="">Recent expressions</option>';history.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;$('history').append(o)})}function library(q=''){$('library').innerHTML='';for(const [name,eq] of Object.entries(presets)){if(!(name+' '+eq).toLowerCase().includes(q.toLowerCase()))continue;const b=document.createElement('button');b.textContent=name;b.onclick=()=>select(eq);$('library').append(b)}}
 $('search').oninput=e=>library(e.target.value);$('history').onchange=e=>{if(e.target.value)select(e.target.value)};$('apply').onclick=apply;let editTimer;$('expr').addEventListener('input',()=>{clearTimeout(editTimer);editTimer=setTimeout(()=>parse(),180)});$('snapshot').onclick=()=>{renderer.render(scene,camera);const link=document.createElement('a');link.download='mathematica-atelier.png';link.href=renderer.domElement.toDataURL('image/png');link.click()};$('expr').onkeydown=e=>{if(e.key==='Enter')apply()};$('hue').onchange=parse;$('bg').onchange=parse;library();try{history=JSON.parse(localStorage.getItem('atelierHistory')||'[]')}catch{}drawHistory();
-installBackgroundPopup();
+installSurfacePopup();installBackgroundPopup();
 scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(45,1,.1,200);camera.position.set(12,11,15);renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;controls=new OrbitControls(camera,$('view'));controls.enableDamping=true;scene.add(new THREE.HemisphereLight(0xe7dcff,0x1c1634,2));const light=new THREE.DirectionalLight(0xffffff,2.5);light.position.set(6,12,7);scene.add(light);geometry=new THREE.PlaneGeometry(14,14,120,120);geometry.rotateX(-Math.PI/2);material=new THREE.MeshStandardMaterial({side:THREE.DoubleSide,metalness:.25,roughness:.34,vertexColors:true});mesh=new THREE.Mesh(geometry,material);scene.add(mesh);const positions=geometry.attributes.position;const colors=new Float32Array(positions.count*3);geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));const colorObj=new THREE.Color();const sheetMat1=new THREE.MeshStandardMaterial({color:0xe2a6ef,side:THREE.DoubleSide,roughness:.3,metalness:.15});const sheetMat2=new THREE.MeshStandardMaterial({color:0x65cdd8,side:THREE.DoubleSide,roughness:.3,metalness:.15});function makeSheet(sign,mat){const g=new THREE.BufferGeometry(),vertices=[],indices=[];const rings=65,segments=96,maxR=5;for(let j=0;j<=rings;j++){const radius=maxR*j/rings;for(let k=0;k<=segments;k++){const a=2*Math.PI*k/segments;vertices.push(radius*Math.cos(a),sign*Math.sqrt(1+Number($('curvature').value)*radius*radius),radius*Math.sin(a))}}for(let j=0;j<rings;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1)}g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return new THREE.Mesh(g,mat)}let upperMesh,lowerMesh;function rebuildSheets(){if(upperMesh){scene.remove(upperMesh);upperMesh.geometry.dispose();scene.remove(lowerMesh);lowerMesh.geometry.dispose()}upperMesh=makeSheet(1,sheetMat1);lowerMesh=makeSheet(-1,sheetMat2);scene.add(upperMesh,lowerMesh)}rebuildSheets();$('curvature').oninput=()=>{$('curvatureValue').textContent=Number($('curvature').value).toFixed(2);rebuildSheets()};for(const id of ['curvature','upperHue','lowerHue'])attachPrecision($(id));parse();
 let lastWidth=0,lastHeight=0;function evalSafe(comp,scope,fallback){try{const v=comp.evaluate(scope);return typeof v==='number'&&Number.isFinite(v)?v:fallback}catch{return fallback}}function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if($('animateTime').checked)time+=dt;tickAutomation(dt);mesh.visible=!implicitMode;upperMesh.visible=implicitMode&&$('upperSheet').checked;lowerMesh.visible=implicitMode&&$('lowerSheet').checked;if(colourOverrides.upper)sheetMat1.color.set(selectedColours.upper);else sheetMat1.color.setHSL(+$('upperHue').value,.72,.65);if(colourOverrides.lower)sheetMat2.color.set(selectedColours.lower);else sheetMat2.color.setHSL(+$('lowerHue').value,.72,.60);let avg=0, sumSq=0,minimum=Infinity,maximum=-Infinity,peak=0,slopeSum=0,centre=0,count=0;
 if(!implicitMode)for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getZ(i),scope={...parameters,x,y,t:time};const z=Math.max(-12,Math.min(12,evalSafe(expression,scope,0)));positions.setY(i,z);avg+=z;sumSq+=z*z;minimum=Math.min(minimum,z);maximum=Math.max(maximum,z);peak=Math.max(peak,Math.abs(z));count++;
