@@ -77,6 +77,46 @@ function addColourWheel(key,title){
 }
 for(const [key,title] of [['upper','Upper sheet'],['lower','Lower sheet'],['surface','General surface'],['background','Background']])addColourWheel(key,title);
 
+function installBackgroundPopup(){
+ const wheel=[...document.querySelectorAll('#colourWheels .wheel-panel')].find(p=>p.querySelector('h3')?.textContent==='Background');
+ const expressionInput=$('bg');
+ if(!wheel||!expressionInput)return;
+ const modal=document.createElement('div');modal.id='backgroundPopup';modal.className='background-popup';modal.setAttribute('role','dialog');modal.setAttribute('aria-label','Background settings');modal.setAttribute('aria-modal','false');modal.hidden=true;
+ const header=document.createElement('div');header.className='background-popup-header';
+ const title=document.createElement('strong');title.textContent='Background settings';
+ const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close background settings');close.onclick=()=>{modal.hidden=true};
+ header.append(title,close);
+ const description=document.createElement('p');description.textContent='Click an empty area of the canvas to move this card.';
+ const label=document.createElement('label');label.htmlFor='bg';label.textContent='Background colour expression (hue 0–1)';
+ const previousLabel=expressionInput.previousElementSibling;
+ if(previousLabel?.tagName==='LABEL'&&previousLabel.textContent.includes('Background'))previousLabel.remove();
+ modal.append(header,description,wheel,label,expressionInput);
+ document.body.append(modal);
+ const canvas=$('view'),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+ let down=null;
+ canvas.addEventListener('pointerdown',event=>{if(event.button===0)down={x:event.clientX,y:event.clientY}});
+ canvas.addEventListener('pointerup',event=>{
+  if(event.button!==0||!down)return;
+  const distance=Math.hypot(event.clientX-down.x,event.clientY-down.y);down=null;
+  if(distance>5)return;
+  const rect=canvas.getBoundingClientRect();
+  pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const surfaces=[mesh,upperMesh,lowerMesh].filter(object=>object&&object.visible);
+  if(raycaster.intersectObjects(surfaces,false).length)return;
+  modal.hidden=false;
+  const margin=12;
+  const width=Math.min(330,window.innerWidth-2*margin);
+  modal.style.width=width+'px';
+  const left=Math.max(margin,Math.min(event.clientX+12,window.innerWidth-width-margin));
+  const top=Math.max(margin,Math.min(event.clientY+12,window.innerHeight-Math.min(modal.offsetHeight,window.innerHeight-2*margin)-margin));
+  modal.style.left=left+'px';modal.style.top=top+'px';
+ });
+ document.addEventListener('keydown',event=>{if(event.key==='Escape')modal.hidden=true});
+ document.addEventListener('pointerdown',event=>{if(!modal.hidden&&!modal.contains(event.target)&&event.target!==canvas)modal.hidden=true});
+}
+
+
 
 function numericControl(key,label,get,set,min,max,host,precision=4){
  const config={key,label,get,set,min,max,enabled:false,rate:0.1,lower:min,upper:max,mode:'bounce',direction:1};
@@ -181,6 +221,7 @@ function parse(rebuild=true){
 }
 function select(s){$('expr').value=s;apply()}function apply(){if(!parse())return;history=[ $('expr').value,...history.filter(v=>v!==$('expr').value)].slice(0,30);localStorage.setItem('atelierHistory',JSON.stringify(history));drawHistory()}function drawHistory(){$('history').innerHTML='<option value="">Recent expressions</option>';history.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;$('history').append(o)})}function library(q=''){$('library').innerHTML='';for(const [name,eq] of Object.entries(presets)){if(!(name+' '+eq).toLowerCase().includes(q.toLowerCase()))continue;const b=document.createElement('button');b.textContent=name;b.onclick=()=>select(eq);$('library').append(b)}}
 $('search').oninput=e=>library(e.target.value);$('history').onchange=e=>{if(e.target.value)select(e.target.value)};$('apply').onclick=apply;let editTimer;$('expr').addEventListener('input',()=>{clearTimeout(editTimer);editTimer=setTimeout(()=>parse(),180)});$('snapshot').onclick=()=>{renderer.render(scene,camera);const link=document.createElement('a');link.download='mathematica-atelier.png';link.href=renderer.domElement.toDataURL('image/png');link.click()};$('expr').onkeydown=e=>{if(e.key==='Enter')apply()};$('hue').onchange=parse;$('bg').onchange=parse;library();try{history=JSON.parse(localStorage.getItem('atelierHistory')||'[]')}catch{}drawHistory();
+installBackgroundPopup();
 scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(45,1,.1,200);camera.position.set(12,11,15);renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;controls=new OrbitControls(camera,$('view'));controls.enableDamping=true;scene.add(new THREE.HemisphereLight(0xe7dcff,0x1c1634,2));const light=new THREE.DirectionalLight(0xffffff,2.5);light.position.set(6,12,7);scene.add(light);geometry=new THREE.PlaneGeometry(14,14,120,120);geometry.rotateX(-Math.PI/2);material=new THREE.MeshStandardMaterial({side:THREE.DoubleSide,metalness:.25,roughness:.34,vertexColors:true});mesh=new THREE.Mesh(geometry,material);scene.add(mesh);const positions=geometry.attributes.position;const colors=new Float32Array(positions.count*3);geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));const colorObj=new THREE.Color();const sheetMat1=new THREE.MeshStandardMaterial({color:0xe2a6ef,side:THREE.DoubleSide,roughness:.3,metalness:.15});const sheetMat2=new THREE.MeshStandardMaterial({color:0x65cdd8,side:THREE.DoubleSide,roughness:.3,metalness:.15});function makeSheet(sign,mat){const g=new THREE.BufferGeometry(),vertices=[],indices=[];const rings=65,segments=96,maxR=5;for(let j=0;j<=rings;j++){const radius=maxR*j/rings;for(let k=0;k<=segments;k++){const a=2*Math.PI*k/segments;vertices.push(radius*Math.cos(a),sign*Math.sqrt(1+Number($('curvature').value)*radius*radius),radius*Math.sin(a))}}for(let j=0;j<rings;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1)}g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return new THREE.Mesh(g,mat)}let upperMesh,lowerMesh;function rebuildSheets(){if(upperMesh){scene.remove(upperMesh);upperMesh.geometry.dispose();scene.remove(lowerMesh);lowerMesh.geometry.dispose()}upperMesh=makeSheet(1,sheetMat1);lowerMesh=makeSheet(-1,sheetMat2);scene.add(upperMesh,lowerMesh)}rebuildSheets();$('curvature').oninput=()=>{$('curvatureValue').textContent=Number($('curvature').value).toFixed(2);rebuildSheets()};for(const id of ['curvature','upperHue','lowerHue'])attachPrecision($(id));parse();
 let lastWidth=0,lastHeight=0;function evalSafe(comp,scope,fallback){try{const v=comp.evaluate(scope);return typeof v==='number'&&Number.isFinite(v)?v:fallback}catch{return fallback}}function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if($('animateTime').checked)time+=dt;tickAutomation(dt);mesh.visible=!implicitMode;upperMesh.visible=implicitMode&&$('upperSheet').checked;lowerMesh.visible=implicitMode&&$('lowerSheet').checked;if(colourOverrides.upper)sheetMat1.color.set(selectedColours.upper);else sheetMat1.color.setHSL(+$('upperHue').value,.72,.65);if(colourOverrides.lower)sheetMat2.color.set(selectedColours.lower);else sheetMat2.color.setHSL(+$('lowerHue').value,.72,.60);let avg=0, sumSq=0,minimum=Infinity,maximum=-Infinity,peak=0,slopeSum=0,centre=0,count=0;
 if(!implicitMode)for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getZ(i),scope={...parameters,x,y,t:time};const z=Math.max(-12,Math.min(12,evalSafe(expression,scope,0)));positions.setY(i,z);avg+=z;sumSq+=z*z;minimum=Math.min(minimum,z);maximum=Math.max(maximum,z);peak=Math.max(peak,Math.abs(z));count++;
