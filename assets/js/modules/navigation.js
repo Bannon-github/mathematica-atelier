@@ -12,7 +12,7 @@ const panels=[...document.querySelectorAll('main > aside .settings-panel')];
 for(const panel of libraryAside.querySelectorAll('.settings-panel'))controlAside.append(panel);
 // Nested hyperboloid controls remain in Expression so the renderer can keep using its IDs.
 const hyperboloid=document.getElementById('implicitControls');
-if(hyperboloid){const panel=document.createElement('details');panel.className='settings-panel';panel.dataset.panel='two-sheet-hyperboloid';panel.open=true;const summary=document.createElement('summary');summary.textContent='Two-sheet hyperboloid';const body=document.createElement('div');body.className='settings-panel-content';hyperboloid.parentNode.insertBefore(panel,hyperboloid);body.append(hyperboloid);panel.append(summary,body);}
+if(hyperboloid){const panel=document.createElement('details');panel.className='settings-panel';panel.dataset.panel='two-sheet-hyperboloid';panel.open=true;const summary=document.createElement('summary');summary.textContent='Two-sheet hyperboloid';const body=document.createElement('div');body.className='settings-panel-content';body.append(hyperboloid);panel.append(summary,body);controlAside.append(panel);}
 const heading=document.createElement('h2');heading.className='workspace-title';
 const intro=document.createElement('p');intro.className='workspace-intro';
 controlAside.prepend(intro);controlAside.prepend(heading);
