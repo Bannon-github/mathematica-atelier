@@ -3,13 +3,38 @@ import * as THREE from 'https://esm.sh/three@0.170.0';import {OrbitControls} fro
 const presets={'Two-sheet hyperboloid':'x^2-y^2+z^2+1=0','Wave interference':'A*sin(f*x+t)*cos(g*y)','Radial ripples':'A*sin(f*sqrt(x*x+y*y)-t)','Saddle':'A*(x*x-y*y)/12','Gaussian bell':'A*exp(-(x*x+y*y)/f)','Twisted surface':'A*sin(f*x*y/8+t)','Hyperbolic paraboloid':'A*x*y/7','Sombrero':'A*sin(f*sqrt(x*x+y*y))/(sqrt(x*x+y*y)+0.1)','Moiré interference':'A*(sin(f*x+t)+cos(g*y-t))','Standing waves':'A*sin(f*x)*sin(g*y)*cos(t)'};let history=[];const $=id=>document.getElementById(id);let parameters={A:2,f:1.5,g:1.5};const reserved=new Set(['x','y','z','t','sin','cos','tan','sqrt','exp','log','abs','pi','e','pow','min','max']);let expression,colour,bg,implicitMode=false;let componentNodes=[],componentEnabled={};let renderer,scene,camera,controls,mesh,geometry,material;let time=0,last=performance.now(),audioCtx,gain,audioOn=false,audioOscillators=new Map(),audioPanner;
 function makeCompiled(str){return compile(str)}
 function buildComponents(){
- const tree=parseMath($('expr').value);let nodes=[];
- function walk(node){if(node.isOperatorNode&&['add','subtract'].includes(node.fn)){node.args.forEach(walk)}else nodes.push(node)}
+ const tree=parseMath($('expr').value),nodes=[];
+ function walk(node,sign=1){
+  if(node.isOperatorNode&&node.fn==='add'){walk(node.args[0],sign);walk(node.args[1],sign)}
+  else if(node.isOperatorNode&&node.fn==='subtract'){walk(node.args[0],sign);walk(node.args[1],-sign)}
+  else nodes.push({node,sign,id:String(nodes.length)});
+ }
  walk(tree);componentNodes=nodes;
  const host=$('components');host.replaceChildren();
- nodes.forEach((node,i)=>{const key=node.toString();if(!(key in componentEnabled))componentEnabled[key]=true;const line=document.createElement('label');line.style.cssText='display:flex;align-items:center;gap:8px;font-size:17px;overflow-wrap:anywhere';const cb=document.createElement('input');cb.type='checkbox';cb.style.width='auto';cb.checked=componentEnabled[key];cb.onchange=()=>{componentEnabled[key]=cb.checked;parse(false)};const span=document.createElement('span');span.textContent=key;line.append(cb,span);host.append(line)})
+ nodes.forEach(({node,sign,id})=>{
+  if(!(id in componentEnabled))componentEnabled[id]=true;
+  const line=document.createElement('label');line.style.cssText='display:flex;align-items:center;gap:8px;font-size:17px;overflow-wrap:anywhere';
+  const cb=document.createElement('input');cb.type='checkbox';cb.style.width='auto';cb.checked=componentEnabled[id];
+  cb.setAttribute('aria-label','Enable term '+(Number(id)+1)+': '+(sign<0?'-':'')+node.toString());
+  cb.onchange=()=>{componentEnabled[id]=cb.checked;parse(false)};
+  const span=document.createElement('span');span.textContent=(sign<0?'− ':'+ ')+node.toString();
+  line.append(cb,span);host.append(line);
+ });
 }
-function effectiveExpression(){if(!componentNodes.length)return $('expr').value;return componentNodes.filter(n=>componentEnabled[n.toString()]!==false).map(n=>'('+n.toString()+')').join('+')||'0'}
+function effectiveExpression(){
+ if(!componentNodes.length)return $('expr').value;
+ return componentNodes.filter(({id})=>componentEnabled[id]!==false).map(({node,sign})=>(sign<0?'-':'')+'('+node.toString()+')').join('+')||'0';
+}
+function expressionParameters(source){
+ const found=new Set(),tree=parseMath(source);
+ tree.traverse((node,path,parent)=>{
+  if(!node.isSymbolNode)return;
+  if(parent&&parent.isFunctionNode&&parent.fn===node)return;
+  if(!reserved.has(node.name))found.add(node.name);
+ });
+ return [...found];
+}
+
 
 
 const automationRegistry=new Map();
@@ -29,9 +54,9 @@ function addColourWheel(key,title){
   if(rad>radius){image.data[idx+3]=0;continue}
   const hue=(Math.atan2(dy,dx)/(2*Math.PI)+1)%1;
   const col=new THREE.Color().setHSL(hue,Math.min(1,rad/radius),.5);
-  image.data[idx]=Math.round(255*THREE.MathUtils.linearToSRGB(col.r));
-  image.data[idx+1]=Math.round(255*THREE.MathUtils.linearToSRGB(col.g));
-  image.data[idx+2]=Math.round(255*THREE.MathUtils.linearToSRGB(col.b));
+  image.data[idx]=Math.round(255*col.clone().convertLinearToSRGB().r);
+  image.data[idx+1]=Math.round(255*col.clone().convertLinearToSRGB().g);
+  image.data[idx+2]=Math.round(255*col.clone().convertLinearToSRGB().b);
   image.data[idx+3]=255;
  }
  ctx.putImageData(image,0,0);
@@ -128,11 +153,36 @@ function attachPrecision(slider,callback){
  slider.addEventListener('input',()=>{if(!config.enabled)automationInitial.set(key,Number(slider.value))});
 
 }
-function parse(rebuild=true){try{implicitMode=/^\s*x\s*\^\s*2\s*-\s*y\s*\^\s*2\s*\+\s*z\s*\^\s*2\s*\+\s*1\s*=\s*0\s*$/.test($('expr').value);$('implicitControls').style.display=implicitMode?'block':'none';if(implicitMode){$('components').replaceChildren();$('params').replaceChildren();$('status').textContent='Two-sheet hyperboloid · Drag to orbit';return true}if(rebuild)buildComponents();for(const key of [...automationRegistry.keys()])if(key.startsWith('parameter:')){automationRegistry.delete(key);automationInitial.delete(key)}expression=makeCompiled(effectiveExpression());colour=makeCompiled($('hue').value);bg=makeCompiled($('bg').value);const vars=($('expr').value.match(/[A-Za-z_][A-Za-z_0-9]*/g)||[]).filter(v=>!reserved.has(v));for(const v of new Set(vars))if(!(v in parameters))parameters[v]=1;for(const k of Object.keys(parameters))if(!vars.includes(k))delete parameters[k];$('params').innerHTML='';for(const [k,v] of Object.entries(parameters)){const label=document.createElement('label');label.textContent=k+' = '+v.toFixed(2);const slider=document.createElement('input');slider.type='range';slider.min='-8';slider.max='8';slider.step='.05';slider.value=v;slider.oninput=()=>{parameters[k]=+slider.value;label.textContent=k+' = '+slider.value};$('params').append(label,slider);attachPrecision(slider)}$('status').textContent='Drag to orbit · Scroll to zoom';return true}catch(e){$('status').textContent='Expression error: '+e.message;return false}}
+function parse(rebuild=true){
+ try{
+  implicitMode=/^\s*x\s*\^\s*2\s*-\s*y\s*\^\s*2\s*\+\s*z\s*\^\s*2\s*\+\s*1\s*=\s*0\s*$/.test($('expr').value);
+  $('implicitControls').style.display=implicitMode?'block':'none';
+  if(implicitMode){$('components').replaceChildren();$('params').replaceChildren();$('status').textContent='Two-sheet hyperboloid · Drag to orbit';return true}
+  if(rebuild)buildComponents();
+  expression=makeCompiled(effectiveExpression());colour=makeCompiled($('hue').value);bg=makeCompiled($('bg').value);
+  const vars=expressionParameters($('expr').value);
+  for(const v of vars)if(!(v in parameters))parameters[v]=1;
+  for(const k of Object.keys(parameters))if(!vars.includes(k))delete parameters[k];
+  const oldSettings=new Map();
+  for(const [key,config] of automationRegistry)if(key.startsWith('parameter:'))oldSettings.set(key,{enabled:config.enabled,rate:config.rate,lower:config.lower,upper:config.upper,mode:config.mode,direction:config.direction});
+  for(const key of oldSettings.keys()){automationRegistry.delete(key)}
+  $('params').replaceChildren();
+  for(const [k,v] of Object.entries(parameters)){
+   const label=document.createElement('label');label.textContent=k+' = '+v.toFixed(2);
+   const slider=document.createElement('input');slider.type='range';slider.min='-8';slider.max='8';slider.step='.05';slider.value=v;
+   slider.setAttribute('aria-label','Parameter '+k);
+   slider.oninput=()=>{parameters[k]=+slider.value;label.textContent=k+' = '+slider.value};
+   $('params').append(label,slider);attachPrecision(slider);
+   const config=automationRegistry.get('parameter:'+k),saved=oldSettings.get('parameter:'+k);
+   if(config&&saved){Object.assign(config,saved);if(config.controlCheckbox)config.controlCheckbox.checked=saved.enabled}
+  }
+  $('status').textContent='Drag to orbit · Scroll to zoom';return true;
+ }catch(e){$('status').textContent='Expression error: '+e.message;return false}
+}
 function select(s){$('expr').value=s;apply()}function apply(){if(!parse())return;history=[ $('expr').value,...history.filter(v=>v!==$('expr').value)].slice(0,30);localStorage.setItem('atelierHistory',JSON.stringify(history));drawHistory()}function drawHistory(){$('history').innerHTML='<option value="">Recent expressions</option>';history.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;$('history').append(o)})}function library(q=''){$('library').innerHTML='';for(const [name,eq] of Object.entries(presets)){if(!(name+' '+eq).toLowerCase().includes(q.toLowerCase()))continue;const b=document.createElement('button');b.textContent=name;b.onclick=()=>select(eq);$('library').append(b)}}
 $('search').oninput=e=>library(e.target.value);$('history').onchange=e=>{if(e.target.value)select(e.target.value)};$('apply').onclick=apply;let editTimer;$('expr').addEventListener('input',()=>{clearTimeout(editTimer);editTimer=setTimeout(()=>parse(),180)});$('snapshot').onclick=()=>{renderer.render(scene,camera);const link=document.createElement('a');link.download='mathematica-atelier.png';link.href=renderer.domElement.toDataURL('image/png');link.click()};$('expr').onkeydown=e=>{if(e.key==='Enter')apply()};$('hue').onchange=parse;$('bg').onchange=parse;library();try{history=JSON.parse(localStorage.getItem('atelierHistory')||'[]')}catch{}drawHistory();
 scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(45,1,.1,200);camera.position.set(12,11,15);renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;controls=new OrbitControls(camera,$('view'));controls.enableDamping=true;scene.add(new THREE.HemisphereLight(0xe7dcff,0x1c1634,2));const light=new THREE.DirectionalLight(0xffffff,2.5);light.position.set(6,12,7);scene.add(light);geometry=new THREE.PlaneGeometry(14,14,120,120);geometry.rotateX(-Math.PI/2);material=new THREE.MeshStandardMaterial({side:THREE.DoubleSide,metalness:.25,roughness:.34,vertexColors:true});mesh=new THREE.Mesh(geometry,material);scene.add(mesh);const positions=geometry.attributes.position;const colors=new Float32Array(positions.count*3);geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));const colorObj=new THREE.Color();const sheetMat1=new THREE.MeshStandardMaterial({color:0xe2a6ef,side:THREE.DoubleSide,roughness:.3,metalness:.15});const sheetMat2=new THREE.MeshStandardMaterial({color:0x65cdd8,side:THREE.DoubleSide,roughness:.3,metalness:.15});function makeSheet(sign,mat){const g=new THREE.BufferGeometry(),vertices=[],indices=[];const rings=65,segments=96,maxR=5;for(let j=0;j<=rings;j++){const radius=maxR*j/rings;for(let k=0;k<=segments;k++){const a=2*Math.PI*k/segments;vertices.push(radius*Math.cos(a),sign*Math.sqrt(1+Number($('curvature').value)*radius*radius),radius*Math.sin(a))}}for(let j=0;j<rings;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1)}g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return new THREE.Mesh(g,mat)}let upperMesh,lowerMesh;function rebuildSheets(){if(upperMesh){scene.remove(upperMesh);upperMesh.geometry.dispose();scene.remove(lowerMesh);lowerMesh.geometry.dispose()}upperMesh=makeSheet(1,sheetMat1);lowerMesh=makeSheet(-1,sheetMat2);scene.add(upperMesh,lowerMesh)}rebuildSheets();$('curvature').oninput=()=>{$('curvatureValue').textContent=Number($('curvature').value).toFixed(2);rebuildSheets()};for(const id of ['curvature','upperHue','lowerHue'])attachPrecision($(id));parse();
-function evalSafe(comp,scope,fallback){try{const v=comp.evaluate(scope);return typeof v==='number'&&Number.isFinite(v)?v:fallback}catch{return fallback}}function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if($('animateTime').checked)time+=dt;tickAutomation(dt);mesh.visible=!implicitMode;upperMesh.visible=implicitMode&&$('upperSheet').checked;lowerMesh.visible=implicitMode&&$('lowerSheet').checked;if(colourOverrides.upper)sheetMat1.color.set(selectedColours.upper);else sheetMat1.color.setHSL(+$('upperHue').value,.72,.65);if(colourOverrides.lower)sheetMat2.color.set(selectedColours.lower);else sheetMat2.color.setHSL(+$('lowerHue').value,.72,.60);let avg=0, sumSq=0,minimum=Infinity,maximum=-Infinity,peak=0,slopeSum=0,centre=0,count=0;
+let lastWidth=0,lastHeight=0;function evalSafe(comp,scope,fallback){try{const v=comp.evaluate(scope);return typeof v==='number'&&Number.isFinite(v)?v:fallback}catch{return fallback}}function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if($('animateTime').checked)time+=dt;tickAutomation(dt);mesh.visible=!implicitMode;upperMesh.visible=implicitMode&&$('upperSheet').checked;lowerMesh.visible=implicitMode&&$('lowerSheet').checked;if(colourOverrides.upper)sheetMat1.color.set(selectedColours.upper);else sheetMat1.color.setHSL(+$('upperHue').value,.72,.65);if(colourOverrides.lower)sheetMat2.color.set(selectedColours.lower);else sheetMat2.color.setHSL(+$('lowerHue').value,.72,.60);let avg=0, sumSq=0,minimum=Infinity,maximum=-Infinity,peak=0,slopeSum=0,centre=0,count=0;
 if(!implicitMode)for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getZ(i),scope={...parameters,x,y,t:time};const z=Math.max(-12,Math.min(12,evalSafe(expression,scope,0)));positions.setY(i,z);avg+=z;sumSq+=z*z;minimum=Math.min(minimum,z);maximum=Math.max(maximum,z);peak=Math.max(peak,Math.abs(z));count++;
 if(i===Math.floor(positions.count/2))centre=z;
 if(i%121!==0){slopeSum+=Math.abs(z-positions.getY(i-1))}
@@ -145,7 +195,7 @@ const hue=((evalSafe(colour,{...scope,z},.7)%1)+1)%1;if(colourOverrides.surface)
  if(i===0)centre=z;if(i>0)slopeSum+=Math.abs(height-Math.sqrt(1+curvature*Math.pow(5*(i-1)/120,2)));
  }}
 }
-if(!implicitMode){positions.needsUpdate=true;geometry.attributes.color.needsUpdate=true;geometry.computeVertexNormals();}const h=((evalSafe(bg,{...parameters,t:time,x:0,y:0,z:0},.7)%1)+1)%1;scene.background=colourOverrides.background?new THREE.Color(selectedColours.background):new THREE.Color().setHSL(h,.27,.09);if(audioOn&&audioCtx&&count){
+if(!implicitMode){positions.needsUpdate=true;geometry.attributes.color.needsUpdate=true;geometry.computeVertexNormals();}const h=((evalSafe(bg,{...parameters,t:time,x:0,y:0,z:0},.7)%1)+1)%1;scene.background=colourOverrides.background?new THREE.Color(selectedColours.background):new THREE.Color().setHSL(h,.27,.09);if(audioOn&&audioCtx&&!count){gain.gain.setTargetAtTime(0,audioCtx.currentTime,.03);$('audioStatus').textContent='No visible surface samples · audio muted'}if(audioOn&&audioCtx&&count){
  const mean=avg/count;
  const metrics={mean,rms:Math.sqrt(sumSq/count),range:maximum-minimum,peak,variance:Math.max(0,sumSq/count-mean*mean),center:centre,slope:slopeSum/count,time};
  const value=metrics[$('audioMapping').value]||0;
@@ -160,7 +210,7 @@ if(!implicitMode){positions.needsUpdate=true;geometry.attributes.color.needsUpda
  gain.gain.setTargetAtTime((output==='volume'||output==='both'?dynamicVolume:volume),audioCtx.currentTime,smoothing);
  if(audioPanner)audioPanner.pan.setTargetAtTime(output==='stereo'?Math.tanh(value*sensitivity/300):0,audioCtx.currentTime,smoothing);
  $('audioStatus').textContent='Playing · '+$('audioMapping').selectedOptions[0].text+' = '+value.toFixed(4)+' · '+Math.round(targetPitch)+' Hz';
-}const r=$('view').getBoundingClientRect();if(r.width&&r.height){renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix()}controls.update();renderer.render(scene,camera)}requestAnimationFrame(animate);
+}const r=$('view').getBoundingClientRect();if(r.width&&r.height&&(r.width!==lastWidth||r.height!==lastHeight)){lastWidth=r.width;lastHeight=r.height;renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix()}controls.update();renderer.render(scene,camera)}requestAnimationFrame(animate);
 function syncAudioWaves(){
  if(!audioCtx)return;
  const selected=new Set([...document.querySelectorAll('#waveTypes input:checked')].map(e=>e.value));
