@@ -271,7 +271,7 @@ editor.querySelector('#tokenDelete').onclick=()=>{
 };
 editor.querySelector('#tokenSave').onclick=()=>{document.getElementById('apply')?.click();setStatus('Expression saved to history.')};
 editor.querySelector('#tokenClose').onclick=()=>editor.hidden=true;
-function showEditor() {editor.hidden=false;refresh();if(selectedIndex<0&&tokens.length)select(0)}
+function showEditor() {editor.hidden=false;refresh();if(selectedIndex<0&&tokens.length){const number=tokens.findIndex(t=>/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(t.value));select(number>=0?number:0)}}
 const openButton=document.createElement('button');
 openButton.type='button';openButton.className='token-launch';openButton.textContent='Edit equation elements';
 openButton.title='Open the interactive equation editor';
