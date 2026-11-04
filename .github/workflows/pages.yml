@@ -25,6 +25,7 @@ jobs:
           node --check assets/js/modules/navigation.js
           node --check assets/js/modules/panels.js
           node --check assets/js/modules/token-editor.js
+          node --check assets/js/modules/smoke-test.js
       - name: Check site assets
         run: |
           test -s index.html
@@ -33,6 +34,7 @@ jobs:
           test -s assets/js/modules/navigation.js
           test -s assets/js/modules/panels.js
           test -s assets/js/modules/token-editor.js
+          test -s assets/js/modules/smoke-test.js
           test -s assets/css/token-mockup.css
           grep -q 'assets/css/atelier.css' index.html
           grep -q 'assets/js/app.js' index.html
