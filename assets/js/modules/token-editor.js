@@ -162,17 +162,40 @@ function refresh(cursor) {
   } else if (selectedIndex>=tokens.length) selectedIndex=tokens.length-1;
   render();
 }
+function removeTokenAt(index) {
+  const token=tokens[index];
+  if (!token) return;
+  const previous=equationInput.value;
+  const next=previous.slice(0,token.start)+previous.slice(token.end);
+  recordBeforeChange(previous);
+  internalChange=true;
+  equationInput.value=next;
+  equationInput.dispatchEvent(new Event('input',{bubbles:true}));
+  internalChange=false;
+  selectedIndex=Math.min(index,scan(next).length-1);
+  refresh(token.start);
+  const problem=check(next);
+  setStatus(problem?'Token removed. Finish the expression to render: '+problem:'Token removed.',Boolean(problem));
+}
 function render() {
   expressionRow.replaceChildren();
   for (let i=0;i<tokens.length;i++) {
     const token=tokens[i];
+    const wrapper=document.createElement('span');wrapper.className='token-chip-wrap';
     const button=document.createElement('button');
     button.type='button';button.className='token-chip';
     button.textContent=token.value;
-    button.title='Edit '+token.value;
+    button.title='Select '+token.value;
     button.setAttribute('aria-pressed',String(i===selectedIndex));
     button.onclick=()=>select(i);
-    expressionRow.append(button);
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='token-chip-delete';
+    remove.textContent='×';
+    remove.setAttribute('aria-label','Delete '+token.value);
+    remove.title='Delete '+token.value;
+    remove.onclick=event=>{event.preventDefault();event.stopPropagation();removeTokenAt(i)};
+    wrapper.append(button,remove);
+    expressionRow.append(wrapper);
   }
   typesHost.replaceChildren();
   for (const type of Object.keys(catalog)) {
