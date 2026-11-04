@@ -43,3 +43,59 @@ if(new URLSearchParams(location.search).get('smoke')==='1') (async()=>{
  report.textContent='LIVE BROWSER TEST: '+passed+'/'+tests.length+' PASS\n\n'+tests.map(x=>(x.pass?'PASS':'FAIL')+'  '+x.name+(x.detail?' ['+x.detail+']':'')).join('\n');
  report.style.borderColor=passed===tests.length?'#5aeebc':'#ff607b';
 })();
+
+
+/* Interactive GPU regression test: enable with ?smoke=quadratic */
+if(new URLSearchParams(location.search).get('smoke')==='quadratic') (async()=>{
+  const report=document.createElement('div');report.id='quadraticSmokeReport';
+  report.setAttribute('role','status');
+  report.style.cssText='position:fixed;z-index:20000;left:16px;bottom:16px;width:min(470px,90vw);max-height:60vh;overflow:auto;padding:13px;background:#131a2bed;border:2px solid #63f3b6;border-radius:10px;color:#f6fff9;font:13px/1.55 Consolas,monospace;white-space:pre-wrap;box-shadow:0 14px 35px #000b';
+  report.textContent='Checking quadratic shader...';document.body.append(report);
+  const results=[],sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const test=(name,pass,detail='')=>results.push({name,pass:!!pass,detail});
+  async function waitFor(selector){for(let n=0;n<80;n++){const element=document.querySelector(selector);if(element)return element;await sleep(125)}throw Error('Missing '+selector)}
+  try{
+    const toggle=await waitFor('#quadraticRootsToggle');
+    const panel=await waitFor('#quadraticRootsPanel');
+    const canvas=await waitFor('#view');
+    await sleep(450);
+    test('Quadratic Roots tab available',toggle.textContent.includes('Quadratic Roots'));
+    const originalWidth=canvas.getBoundingClientRect().width;
+    toggle.click();await sleep(700);
+    test('Shader mode activated',toggle.getAttribute('aria-pressed')==='true');
+    test('Floating controls appear',!panel.hidden);
+    test('Canvas remains full-size',canvas.getBoundingClientRect().width===originalWidth&&originalWidth>100);
+    const sphere=canvas.toDataURL('image/png');
+    const mode=panel.querySelector('#quadraticMode');
+    mode.value='2';mode.dispatchEvent(new Event('change',{bubbles:true}));await sleep(650);
+    const flat=canvas.toDataURL('image/png');
+    test('2D map selectable',mode.value==='2');
+    test('3D and 2D GPU frames differ',sphere!==flat,'3D PNG '+sphere.length+' bytes, map PNG '+flat.length+' bytes');
+    const quality=panel.querySelector('#quadraticQuality');
+    quality.value='1';quality.dispatchEvent(new Event('change',{bubbles:true}));
+    test('Fast antialiasing selectable',quality.value==='1');
+    const speed=panel.querySelector('#quadraticSpeed');
+    speed.value='1.25';speed.dispatchEvent(new Event('input',{bubbles:true}));
+    test('Rotation slider updates',panel.querySelector('#quadraticSpeedLabel').textContent.includes('1.25'));
+    const pause=panel.querySelector('#quadraticPlay');
+    pause.click();test('Animation pauses',pause.textContent.includes('Resume'));
+    panel.querySelector('#quadraticReset').click();
+    test('Reset restores defaults',mode.value==='0'&&speed.value==='0.5'&&quality.value==='2'&&pause.textContent.includes('Pause'));
+    panel.querySelector('#quadraticClose').click();await sleep(350);
+    test('Back to normal surface',toggle.getAttribute('aria-pressed')==='false'&&panel.hidden);
+    const editor=await waitFor('#tokenEditor');
+    test('Equation editor restored',!editor.hidden);
+    const input=document.querySelector('#expr'),before=input.value;
+    const tokenWrap=editor.querySelector('.token-chip-wrap');
+    const deleteButton=tokenWrap?.querySelector('.token-chip-delete');
+    test('Token hover-delete button exists',Boolean(deleteButton)&&deleteButton.getAttribute('aria-label')?.startsWith('Delete '));
+    deleteButton?.click();
+    test('Delete changes equation',input.value!==before,'Before '+before+' after '+input.value);
+    document.querySelector('[aria-label="Undo"]')?.click();
+    test('Undo restores deleted token',input.value===before,input.value);
+  }catch(error){test('Uncaught smoke test error',false,String(error.stack||error))}
+  const success=results.filter(x=>x.pass).length;
+  report.textContent='QUADRATIC BROWSER TEST: '+success+'/'+results.length+' PASS\n'+results.map(x=>(x.pass?'PASS':'FAIL')+' '+x.name+(x.detail?' ['+x.detail+']':'')).join('\n');
+  report.dataset.passed=String(success);report.dataset.total=String(results.length);
+  report.style.borderColor=success===results.length?'#63f3b6':'#ff607b';
+})();
