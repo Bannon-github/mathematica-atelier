@@ -1,5 +1,5 @@
 
-import {createQuadraticRoots} from './modules/quadratic-roots.js';
+import {createQuadraticRoots} from './modules/quadratic-roots.js?v=quadratic-20261104f';
 import * as THREE from 'https://esm.sh/three@0.170.0';import {OrbitControls} from 'https://esm.sh/three@0.170.0/examples/jsm/controls/OrbitControls.js';import {compile,parse as parseMath} from 'https://esm.sh/mathjs@14.0.1';
 const presets={'Two-sheet hyperboloid':'x^2-y^2+z^2+1=0','Wave interference':'A*sin(f*x+t)*cos(g*y)','Radial ripples':'A*sin(f*sqrt(x*x+y*y)-t)','Saddle':'A*(x*x-y*y)/12','Gaussian bell':'A*exp(-(x*x+y*y)/f)','Twisted surface':'A*sin(f*x*y/8+t)','Hyperbolic paraboloid':'A*x*y/7','Sombrero':'A*sin(f*sqrt(x*x+y*y))/(sqrt(x*x+y*y)+0.1)','Moiré interference':'A*(sin(f*x+t)+cos(g*y-t))','Standing waves':'A*sin(f*x)*sin(g*y)*cos(t)'};let history=[];const $=id=>document.getElementById(id);let parameters={A:2,f:1.5,g:1.5};const reserved=new Set(['x','y','z','t','sin','cos','tan','sqrt','exp','log','abs','pi','e','pow','min','max']);let expression,colour,bg,implicitMode=false;let componentNodes=[],componentEnabled={};let renderer,scene,camera,controls,mesh,geometry,material;let time=0,last=performance.now(),audioCtx,gain,audioOn=false,audioOscillators=new Map(),audioPanner;
 function makeCompiled(str){return compile(str)}
