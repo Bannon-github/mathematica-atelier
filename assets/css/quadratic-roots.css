@@ -1,0 +1,54 @@
+/* Quadratic polynomial roots: optional GPU visualisation workspace */
+.workspace-nav .quadratic-toggle{
+  width:auto;flex:0 0 auto;height:42px;margin:0;padding:8px 16px;
+  border:1px solid #6bdaea;border-radius:9px;
+  font:600 17px Georgia,serif;color:#bdf8ff;
+  background:linear-gradient(140deg,#213a55,#30244c);
+  box-shadow:inset 0 0 8px #54d9ff24;
+}
+.workspace-nav .quadratic-toggle[aria-pressed=true]{
+  color:#fff;border-color:#70f1ff;
+  background:linear-gradient(115deg,#2c799e,#6045ae);
+  box-shadow:0 0 12px #57e5ff8f;
+}
+.quadratic-panel{
+  position:fixed;top:130px;right:20px;z-index:985;
+  box-sizing:border-box;width:min(348px,calc(100vw - 30px));
+  max-height:calc(100dvh - 148px);overflow:auto;
+  padding:15px 17px 18px;color:#f5ecff;
+  border:1px solid #8dcded;border-radius:17px;
+  background:linear-gradient(157deg,#292047f2,#15182aef);
+  box-shadow:0 17px 60px #080514bf,0 0 17px #52bfe04d;
+  backdrop-filter:blur(15px);font-family:Georgia,serif;
+}
+.quadratic-panel[hidden]{display:none!important}
+.quadratic-panel-title{display:flex;justify-content:space-between;align-items:center;
+  gap:12px;padding-bottom:12px;border-bottom:1px solid #5c7297}
+.quadratic-panel-title strong{font-size:23px;color:#eecaff}
+.quadratic-panel-title button{box-sizing:border-box;width:32px;height:32px;margin:0;padding:0;
+  color:#fff;background:#483360;border:1px solid #8978ad;border-radius:9px;
+  font:24px Arial,sans-serif}
+.quadratic-equation{text-align:center;font:27px Georgia,serif;color:#adf4ff;
+  padding:11px 7px;margin:13px 0 10px;border-radius:10px;
+  background:#162a45;border:1px solid #416f8c}
+.quadratic-subtitle,.quadratic-note{font:14px/1.5 Georgia,serif;color:#d9cbe5;margin:8px 0 13px}
+.quadratic-panel label{display:block;font:15px Georgia,serif;color:#e9cafa;margin:12px 0 5px}
+.quadratic-panel label output{float:right;color:#b5f3ff}
+.quadratic-panel select,.quadratic-panel input{width:100%;margin:3px 0 9px;
+  color:#f8f2ff;background:#302744;border:1px solid #77749f;border-radius:8px;
+  padding:7px 9px;font:16px Georgia,serif}
+.quadratic-panel input[type=range]{accent-color:#6ad8f7}
+.quadratic-actions{display:flex;gap:9px;margin:10px 0 12px}
+.quadratic-actions button{flex:1;margin:0;font:15px Georgia,serif;padding:8px 9px}
+.quadratic-legend{padding:10px 12px;background:#171b32b8;border:1px solid #564b78;
+  border-radius:11px;display:grid;gap:9px;font:14px Georgia,serif}
+.quadratic-legend>div{display:flex;align-items:center;gap:10px}
+.quadratic-swatch{width:19px;height:19px;min-width:19px;border-radius:5px;border:1px solid #d4bdee;
+  box-shadow:0 0 8px #9b8dd140}
+.quadratic-complex{background:linear-gradient(135deg,#007bc9,#4bb7ff)}
+.quadratic-same{background:linear-gradient(135deg,#eed6aa,#fff3e2)}
+.quadratic-opposite{background:linear-gradient(135deg,#fc7713,#ffd16b)}
+@media(max-width:720px){
+ .workspace-nav .quadratic-toggle{font-size:13px;padding:7px 9px;height:36px}
+ .quadratic-panel{top:128px;right:9px;width:min(330px,calc(100vw - 18px));max-height:calc(100dvh - 142px)}
+}
