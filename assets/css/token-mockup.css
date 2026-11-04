@@ -145,3 +145,24 @@ main>section{height:100%!important}
  .token-status{position:fixed;bottom:54px}
  .token-center-wheel{max-height:180px}
 }
+
+/* Delete a token directly from its equation chip. */
+.token-chip-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:0;pointer-events:auto}
+.token-chip-wrap>.token-chip{padding-right:23px!important}
+.token-editor .token-chip-wrap>.token-chip-delete{
+ position:absolute;z-index:6;right:1px;top:-7px;
+ display:flex;align-items:center;justify-content:center;
+ box-sizing:border-box;width:19px!important;height:19px!important;
+ min-width:19px;margin:0!important;padding:0!important;
+ border:1px solid #ffd8f8!important;border-radius:50%!important;
+ background:#982d63!important;color:white!important;
+ font:15px/1 Arial,sans-serif!important;box-shadow:0 0 7px #f76ac0a8;
+ opacity:0;visibility:hidden;transform:scale(.8);transition:opacity .12s,transform .12s,visibility .12s;
+ pointer-events:none;cursor:pointer;
+}
+.token-chip-wrap:hover>.token-chip-delete,
+.token-chip-wrap:focus-within>.token-chip-delete{
+ opacity:1;visibility:visible;transform:scale(1);pointer-events:auto;
+}
+.token-chip-wrap>.token-chip-delete:hover{background:#d73d77!important;box-shadow:0 0 12px #ff96dc}
+@media(hover:none){.token-chip-wrap>.token-chip-delete{opacity:1;visibility:visible;transform:none;pointer-events:auto}}
